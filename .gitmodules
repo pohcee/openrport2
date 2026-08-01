@@ -1,0 +1,12 @@
+[submodule "server"]
+	path = server
+	url = git@github.com:pohcee/openrport.git
+[submodule "website"]
+	path = website
+	url = git@github.com:pohcee/openrport-ui.git
+[submodule "pairing"]
+	path = pairing
+	url = git@github.com:pohcee/rport-pairing.git
+[submodule "scripts"]
+	path = scripts
+	url = git@github.com:pohcee/rport-scripts.git

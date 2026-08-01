@@ -1,0 +1,34 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "openrport-ui: dev",
+      "type": "shell",
+      // Runs nuxt directly rather than through "yarn dev": Yarn Classic
+      // (v1, used here) is known to not reliably forward SIGTERM/SIGINT to
+      // the process it wraps, which can leave the actual nuxt/vite dev
+      // server running after VS Code stops this task.
+      "command": "./node_modules/.bin/nuxt dev",
+      "options": {
+        "cwd": "${workspaceFolder}/website"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "openrport-ui",
+        "pattern": {
+          "regexp": "."
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".*nuxi.*",
+          "endsPattern": "(Local:.*http|Nuxt DevTools|ready in)"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "openrport-ui"
+      }
+    }
+  ]
+}

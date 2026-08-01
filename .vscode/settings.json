@@ -1,0 +1,12 @@
+{
+  "go.toolsEnvVars": {
+    "PATH": "/usr/local/go/bin:${env:HOME}/go/bin:${env:PATH}"
+  },
+  "go.alternateTools": {
+    "dlv": "${env:HOME}/go/bin/dlv",
+    "go": "/usr/local/go/bin/go"
+  },
+  "go.goroot": "/usr/local/go",
+  "search.useIgnoreFiles": false,
+  "search.useParentIgnoreFiles": false
+}

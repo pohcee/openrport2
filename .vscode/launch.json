@@ -1,0 +1,38 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "chrome",
+      "request": "launch",
+      "name": "openrport-ui: Launch Chrome (Nuxt dev)",
+      "url": "http://localhost:3000",
+      "webRoot": "${workspaceFolder}/website",
+      "preLaunchTask": "openrport-ui: dev"
+    },
+    {
+      "type": "go",
+      "request": "launch",
+      "name": "openrport: Debug rportd (API server)",
+      "mode": "auto",
+      "program": "${workspaceFolder}/server/cmd/rportd",
+      "args": ["-c", "${workspaceFolder}/server/rportd.conf"],
+      "cwd": "${workspaceFolder}/server",
+      "env": {
+        "CGO_ENABLED": "1"
+      }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Launch UI + API (openrport)",
+      "configurations": [
+        "openrport: Debug rportd (API server)",
+        "openrport-ui: Launch Chrome (Nuxt dev)"
+      ],
+      "stopAll": true
+    }
+  ]
+}
