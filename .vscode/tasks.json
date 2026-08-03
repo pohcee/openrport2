@@ -8,7 +8,22 @@
       // (v1, used here) is known to not reliably forward SIGTERM/SIGINT to
       // the process it wraps, which can leave the actual nuxt/vite dev
       // server running after VS Code stops this task.
-      "command": "./node_modules/.bin/nuxt dev",
+      //
+      // Even so, nuxi's "dev" command forks its own internal "_dev" worker
+      // process to run the actual Nitro/Vite server, and that worker can
+      // survive being orphaned if the outer process is killed abruptly
+      // (a known upstream nuxi behavior). An orphan left squatting on port
+      // 3000 makes the next run silently shift to 3001 (while launch.json
+      // still points Chrome at 3000), and if VS Code reuses/attaches to a
+      // stale task instance instead of starting fresh, the background
+      // watcher below can get stuck "active" forever, which is what shows
+      // up as "Waiting for preLaunchTask" never completing. Killing
+      // whatever holds port 3000 before starting guarantees every run
+      // begins from a clean, fresh process.
+      "command": "pid=$(lsof -ti tcp:3000 2>/dev/null); [ -n \"$pid\" ] && kill -9 $pid; ./node_modules/.bin/nuxt dev",
+      "windows": {
+        "command": "Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }; ./node_modules/.bin/nuxt dev"
+      },
       "options": {
         "cwd": "${workspaceFolder}/website"
       },
@@ -20,7 +35,7 @@
         },
         "background": {
           "activeOnStart": true,
-          "beginsPattern": ".*nuxi.*",
+          "beginsPattern": "\\[ nuxi \\] Nuxt",
           "endsPattern": "(Local:.*http|Nuxt DevTools|ready in)"
         }
       },
