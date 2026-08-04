@@ -32,7 +32,7 @@ set -e
 
 show_help() {
   cat << EOF
-Usage: $0 [-n|--dry-run]
+Usage: $0 [-n|--dry-run] [-f|--force]
 
 Commits all pending work across server, pairing, website, and scripts (each
 its own git submodule) using gemit, then releases each one in order:
@@ -54,7 +54,10 @@ its own git submodule) using gemit, then releases each one in order:
 A module with no pending changes AND no unpushed local commits is skipped
 entirely. A module with unpushed commits but nothing currently dirty still
 goes through tests + release, since otherwise those commits would never
-reach a release.
+reach a release. Pass -f/--force to release every module regardless of
+whether it has anything pending - this still tags/pushes/re-triggers each
+repo's release workflow even for a module that is byte-for-byte identical to
+its last release.
 
 After all four modules are processed, the root superproject is committed
 (submodule pointer updates plus any other root-level files) via 'gemit -a'.
@@ -75,11 +78,17 @@ Options:
                  listeners), and show release-it's own --dry-run preview for
                  scripts. Nothing is committed, tagged, released, or pushed,
                  and the confirmation prompt is skipped.
+  -f, --force    Release every module even if it has no pending changes and
+                 no unpushed commits. Useful for re-triggering all four
+                 release pipelines at once (e.g. to validate the pipelines
+                 themselves) when nothing has actually changed. Combine with
+                 -n to preview which modules this affects.
   -h, --help     Show this help message and exit
 EOF
 }
 
 DRY_RUN=false
+FORCE_ALL=false
 for arg in "$@"; do
   case "$arg" in
     -h|--help)
@@ -88,6 +97,9 @@ for arg in "$@"; do
       ;;
     -n|--dry-run)
       DRY_RUN=true
+      ;;
+    -f|--force)
+      FORCE_ALL=true
       ;;
     *)
       echo "Unknown option: $arg"
@@ -107,6 +119,11 @@ fi
 
 if ! command -v jq &> /dev/null; then
   echo "jq is required (used to read/bump website/package.json) but was not found." >&2
+  exit 1
+fi
+
+if ! command -v gh &> /dev/null; then
+  echo "gh (GitHub CLI) is required (used to supply GITHUB_TOKEN to scripts' release-it run) but was not found." >&2
   exit 1
 fi
 
@@ -133,7 +150,7 @@ for m in "${MODULES[@]}"; do
 done
 
 needs_release() {
-  [ "${DIRTY[$1]}" = 1 ] || [ "${UNPUSHED[$1]}" = 1 ]
+  [ "$FORCE_ALL" = true ] || [ "${DIRTY[$1]}" = 1 ] || [ "${UNPUSHED[$1]}" = 1 ]
 }
 
 # $1.$2.$3 -> $1.$2.$(($3+1)), stripping an optional leading 'v' first.
@@ -259,7 +276,13 @@ release_scripts() {
   fi
   ensure_scripts_release_deps
   echo "scripts: running npm run release (release-it: version, changelog, tag, GitHub release, push)..."
-  (cd "$path" && npm run release)
+  # release-it's GitHub-release step (unlike server/pairing/website, which
+  # release via GitHub Actions where GITHUB_TOKEN is auto-injected) needs a
+  # GITHUB_TOKEN in this shell to create the release itself - git tag/push
+  # alone succeed without it, which previously let releases silently go
+  # missing on GitHub while the tag still landed. Falls back to the gh CLI's
+  # own token so this doesn't depend on the shell profile having one set.
+  (cd "$path" && GITHUB_TOKEN="${GITHUB_TOKEN:-$(gh auth token)}" npm run release)
 }
 
 # --- dry-run reporting ---------------------------------------------------
@@ -273,6 +296,8 @@ dry_run_module() {
     (cd "$PROJECT_ROOT/$m" && "$GEMIT" -p)
   elif [ "${UNPUSHED[$m]}" = 1 ]; then
     echo "No pending changes, but local commits are unpushed - would still release."
+  elif [ "$FORCE_ALL" = true ]; then
+    echo "No changes, nothing unpushed, but --force set - would still release."
   else
     echo "No changes, nothing unpushed - would skip."
     return
@@ -333,6 +358,8 @@ for m in "${MODULES[@]}"; do
     echo "  - $m (pending changes, will commit + release)"
   elif [ "${UNPUSHED[$m]}" = 1 ]; then
     echo "  - $m (no pending changes, unpushed commits found, will release)"
+  elif [ "$FORCE_ALL" = true ]; then
+    echo "  - $m (no changes, but --force set, will release anyway)"
   else
     echo "  - $m (no changes, will skip)"
   fi
